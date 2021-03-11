@@ -30,7 +30,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-const marsConfig = "MARS_TASK_DETAIL"
+const marsConfig = "MARS_CLUSTER_DETAIL"
 
 // MarsConfig is a struct representing the distributed Mars config.
 // see https://github.com/mars-project/mars/issues/1458 for details.
@@ -80,7 +80,7 @@ func marsConfigInJson(marJob *v1alpha1.MarsJob, rtype, index string) (string, er
 		})
 		task.Resources = &workerResource{
 			CPU:    resources.Cpu().Value(),
-			Memory: resources.Memory().Value() / (1024 * 1024),
+			Memory: resources.Memory().Value(),
 		}
 	}
 
@@ -98,6 +98,12 @@ func genClusterSpec(marsJob *v1alpha1.MarsJob) (ClusterSpec, error) {
 	cs := make(ClusterSpec)
 
 	for rtype, spec := range marsJob.Spec.MarsReplicaSpecs {
+		// Skip worker replicas since there is only one way dependency from worker to scheduler/webservice,
+		// and number of workers may auto-scaled but environment can not be updated in runtime.
+		if rtype == v1alpha1.MarsReplicaTypeWorker {
+			continue
+		}
+
 		rt := strings.ToLower(string(rtype))
 		endpoints := make([]string, 0, *spec.Replicas)
 
